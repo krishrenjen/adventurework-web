@@ -1,9 +1,16 @@
 "use client"
 import { useEffect, useState, useCallback } from "react";
 import ProductOverview, {ProductProps} from "@/components/ProductOverview";
-import Link from "next/link";
-import { User, UserRole } from "@/common/interfaces/Roles";
 import { callAuthenticatedApi, isEmployee, logout, protectRoute } from "@/common/utils/Auth";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { LuGrid2X2Plus } from "react-icons/lu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import Navbar from "@/components/navbar/Navbar";
+import { addToCart } from "@/common/utils/CartManager";
+import { getBaseURL } from "@/common/utils/BaseURL";
+
 
 function useDebounce<T>(value: T, delay = 300): T {
   const [debounced, setDebounced] = useState(value);
@@ -23,7 +30,7 @@ type ApiResponse = {
 }
 
 function ProductsList() {
-  protectRoute(true, false);
+  
   
   const [query, setQuery] = useState("");
   const [minPrice, setMinPrice] = useState<number | "">("");
@@ -41,15 +48,17 @@ function ProductsList() {
   const dMaxPrice = useDebounce(maxPrice);
   const dPage     = useDebounce(page);
 
-  const buildQueryString = useCallback(() => {
-    const params: URLSearchParams = new URLSearchParams();
-    if (query.trim()) params.append("queryNameID", query.trim());
-    if (minPrice !== "") params.append("listPriceMin", String(minPrice));
-    if (maxPrice !== "") params.append("listPriceMax", String(maxPrice));
-    params.append("pageNumber", page.toString());
-    params.append("pageSize", pageSize.toString());
-    return params.toString();
-  }, [query, minPrice, maxPrice, page, pageSize]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshCart = () => {
+    setRefreshKey(prev => (prev + 1) % 1000);
+  }
+
+  const addToCartCallback = ((productId: number, name: string, listPrice: number, quantity: number) => {
+    console.log("Adding to cart:", productId, quantity);
+    addToCart({productId: productId, name: name, listPrice: listPrice}, quantity);
+    refreshCart();
+  })
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -63,15 +72,16 @@ function ProductsList() {
       setLoading(true);
       setError(null);
       try {
-        const res = await callAuthenticatedApi(
-          `products?${params.toString()}`,
-          { method: 'GET' },
-          '/login',
-          () => setLoading(false)
+        const res = await fetch(
+          `${getBaseURL()}/api/products?${params.toString()}`,
+          {
+            method: 'GET',
+          }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: ApiResponse = await res.json();
         setProducts(data.data);
+        console.log("Products fetched:", data.data);
         setTotalPages(data.totalPages);
       } catch (err) {
         console.error(err);
@@ -83,16 +93,19 @@ function ProductsList() {
 
     fetchProducts();
   }, [dQuery, dMinPrice, dMaxPrice, dPage, pageSize]);
-
+  //font-medium text-2xl
  return (
-    <div className="px-3 py-3 space-y-6">
+    <div className="px-3 py-3 space-y-4">
+      <Navbar refreshKey={refreshKey}>
+        <h1 className="text-2xl font-bold min-h-full text-center">Product Viewer</h1>
+      </Navbar>
+      
       <div className="flex justify-between items-center">
         {/* --- Filters --- */}
         <div className="flex flex-wrap items-end gap-4">
-          <div className="flex flex-col">
-            <label className="text-sm font-medium">Search</label>
-            <input
-              className="border rounded p-2"
+          <div className="flex flex-col gap-2">
+            <Label>Search</Label>
+            <Input 
               placeholder="Name or Product Number"
               value={query}
               onChange={e => { 
@@ -102,11 +115,11 @@ function ProductsList() {
             />
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-sm font-medium">Min Price</label>
-            <input
+          <div className="flex flex-col gap-2">
+            <Label>Minimum Price</Label>
+            <Input 
+              placeholder="Minimum Price"
               type="number"
-              className="border rounded p-2"
               value={minPrice}
               min={0}
               onChange={e => { 
@@ -116,11 +129,11 @@ function ProductsList() {
             />
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-sm font-medium">Max Price</label>
-            <input
+          <div className="flex flex-col gap-2">
+            <Label>Maximum Price</Label>
+            <Input 
+              placeholder="Maximum Price"
               type="number"
-              className="border rounded p-2"
               value={maxPrice}
               min={0}
               onChange={e => { 
@@ -131,19 +144,24 @@ function ProductsList() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <button
-          onClick={() => {
-            logout();
-            window.location.href = '/login';
-          }}
-          className="px-4 py-1 rounded text-xl border border-red-400 text-red-400 hover:bg-gray-100 cursor-pointer"
-          title="Logout"
-          >Logout</button>
-          <Link
-          href={`/products/create`}
-          className="px-4 py-1 border rounded text-xl hover:bg-gray-100"
-          title="Create New Product"
-          >+</Link>
+
+            {isEmployee() && (
+            <Tooltip>
+              <TooltipTrigger>
+              <Button
+                variant="default"
+                onClick={() => {
+                window.location.href = '/products/create'
+                }}>
+                <LuGrid2X2Plus />
+              </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+              <p>Create new product</p>
+              </TooltipContent>
+            </Tooltip>
+            )}
+          
           
         </div>
         
@@ -158,7 +176,7 @@ function ProductsList() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map(p => (
-              <ProductOverview key={p.productId} {...p} isEmployee={isEmployee()} />
+              <ProductOverview key={p.productId} {...p} isEmployee={isEmployee()} addToCartCallback={addToCartCallback} />
             ))}
           </div>
 

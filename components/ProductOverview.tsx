@@ -1,17 +1,23 @@
 "use client"
-import { User, UserRole } from '@/common/interfaces/Roles';
-import { callAuthenticatedApi } from '@/common/utils/Auth';
-import { getBaseURL } from '@/common/utils/BaseURL';
+import { callAuthenticatedApi, isAuthenticated } from '@/common/utils/Auth';
 import Link from 'next/link';
 import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { toast } from 'sonner';
+import Image from 'next/image';
+import { getBaseURL } from '@/common/utils/BaseURL';
+import ProductThumbnail from './ProductThumbnail';
+import clsx from 'clsx';
 
 export interface ProductProps {
   productId: number;
   name: string;
   productNumber: string;
   listPrice: number;
-  category?: string;
+  addToCartCallback?: (productId: number, name: string, listPrice: number, quantity: number) => void;
   isEmployee?: boolean;
+  className?: string;
+  animate?: boolean;
 }
 
 
@@ -20,7 +26,10 @@ export default function ProductOverview({
   name,
   productNumber,
   listPrice,
+  addToCartCallback,
   isEmployee = false,
+  className = "",
+  animate = false
 }: ProductProps) {
 
   const [deleting, setDeleting] = useState(false);
@@ -51,7 +60,8 @@ export default function ProductOverview({
     }
   };
   return (
-    <div className="p-6 bg-white shadow-md rounded-lg border border-gray-200 space-y-2">
+    <div className={clsx(className,"p-6  shadow-md rounded-lg border border-gray-200 space-y-2 group")}>
+      <ProductThumbnail productId={productId} className={animate ? "group-hover:translate-y-[-3px] transition-all duration-300" : ""} />
       <h2 className="text-xl font-bold text-gray-800">{name}</h2>
       {productNumber && (
         <p className="text-sm text-gray-600">Product Number: {productNumber}</p>
@@ -61,24 +71,49 @@ export default function ProductOverview({
       </p>
 
       <div className="flex gap-3 pt-3">
-        <Link
+        <Button asChild variant="default">
+          <Link
           href={`/products/${productId}`}
-          className="px-4 py-1 border rounded text-sm hover:bg-gray-100"
-        >View</Link>
+          prefetch={true}
+          >View</Link>
+        </Button>
+      
+        
+
+        {!isEmployee && isAuthenticated() &&
+        <Button
+          onClick={() => {
+            if (addToCartCallback) {
+              console.log(`Adding product ${productId} to cart`);
+              addToCartCallback(productId, name, listPrice, 1);
+              toast.success("Product added to cart successfully!");
+            } else {
+              console.warn("No addToCartCallback provided");
+              toast.error("This product cannot be added to the cart.");
+            }
+          }}
+          type="button"
+          className="cursor-pointer"
+          variant="secondary">Add to Cart
+        </Button>}
 
         {isEmployee && 
-          <Link
-            href={`/products/${productId}/edit`}
-            className="px-4 py-1 border rounded text-sm text-blue-600 hover:bg-blue-50"
-          >Edit</Link>
+          <Button asChild variant="secondary">
+            <Link
+              href={`/products/${productId}/edit`}
+              prefetch={true}
+            >Edit</Link>
+          </Button>
         }
 
         {isEmployee && 
-          <button
+          <Button
           onClick={handleDelete}
+          type="button"
+          className="cursor-pointer"
           disabled={deleting}
-          className="px-4 py-1 border rounded text-sm text-red-600 hover:bg-red-50 disabled:opacity-40 cursor-pointer"
-          >{deleting ? "Deleting…" : "Delete"}</button>
+          variant="destructive"
+          >{deleting ? "Deleting…" : "Delete"}</Button>
         }
 
         

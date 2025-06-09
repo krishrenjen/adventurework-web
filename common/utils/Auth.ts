@@ -38,9 +38,25 @@ export function isAuthenticated(): boolean {
   return token !== null && token !== '';
 }
 
-export function isEmployee(): boolean {
+export function setViewAsCustomer(toggle: boolean): void {
+  if (typeof window === 'undefined') return; // No localStorage in server-side rendering
+  localStorage.setItem('viewAsCustomer', String(toggle));
+}
+
+export function isViewAsCustomer(): boolean {
+  if (typeof window === 'undefined') return false; // No localStorage in server-side rendering
+  const viewAsCustomer = localStorage.getItem('viewAsCustomer');
+  return viewAsCustomer === 'true' || viewAsCustomer === '1';
+}
+
+export function isEmployee(forceViewAsCustomerOff: boolean = false): boolean {
   const token = getToken();
   if (!token) return false;
+
+  // If forceViewAsCustomerOff is false and viewAsCustomer is enabled, treat as not employee
+  if (!forceViewAsCustomerOff && isViewAsCustomer()) {
+    return false;
+  }
 
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -79,7 +95,6 @@ export function callAuthenticatedApi(
     headers,
   }).then(res => {
     if (res.status === 401) {
-      logout();
       if (redirectTo) {
         if (onRedirect) onRedirect();
         window.location.href = redirectTo;
@@ -103,4 +118,25 @@ export async function protectRoute(authenticated:boolean, employeeOnly:boolean =
   }
   // If authenticated and not employee-only, do nothing
   return false
+}
+
+export async function getUserDetails() : Promise<Response> {
+  const token = getToken();
+
+  if (!token) {
+    return Promise.reject(new Error('Not authenticated'));
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+  };
+
+  return fetch(`${getBaseURL()}/api/user/myinfo`, {
+    headers,
+  }).then(res => {
+    if (res.status === 401) {
+      return Promise.reject(new Error('Unauthorized'))
+    }
+    return res;
+  });
 }
