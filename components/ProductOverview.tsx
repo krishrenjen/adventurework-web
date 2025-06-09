@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { getBaseURL } from '@/common/utils/BaseURL';
 import ProductThumbnail from './ProductThumbnail';
 import clsx from 'clsx';
+import confetti from 'canvas-confetti';
 
 export interface ProductProps {
   productId: number;
@@ -82,11 +83,25 @@ export default function ProductOverview({
 
         {!isEmployee && isAuthenticated() &&
         <Button
-          onClick={() => {
+          onClick={(e) => {
             if (addToCartCallback) {
               console.log(`Adding product ${productId} to cart`);
               addToCartCallback(productId, name, listPrice, 1);
+              
               toast.success("Product added to cart successfully!");
+
+              const x = e.clientX / window.innerWidth;
+              const y = e.clientY / window.innerHeight;
+
+              confetti({
+                particleCount: 30,
+                disableForReducedMotion: true,
+                startVelocity: 30,
+                gravity: 2,
+                ticks: 100,
+                spread: 60,
+                origin: { x, y },
+              });
             } else {
               console.warn("No addToCartCallback provided");
               toast.error("This product cannot be added to the cart.");
