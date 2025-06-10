@@ -1,3 +1,4 @@
+import { log } from "console";
 import { getBaseURL } from "./BaseURL";
 
 export async function login(email: string, password:string) : Promise<boolean>{
@@ -95,6 +96,7 @@ export function callAuthenticatedApi(
     headers,
   }).then(res => {
     if (res.status === 401) {
+      logout();
       if (redirectTo) {
         if (onRedirect) onRedirect();
         window.location.href = redirectTo;
@@ -124,6 +126,7 @@ export async function getUserDetails() : Promise<Response> {
   const token = getToken();
 
   if (!token) {
+    window.location.href = "/login";
     return Promise.reject(new Error('Not authenticated'));
   }
 
@@ -135,6 +138,7 @@ export async function getUserDetails() : Promise<Response> {
     headers,
   }).then(res => {
     if (res.status === 401) {
+      logout();
       return Promise.reject(new Error('Unauthorized'))
     }
     return res;

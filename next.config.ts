@@ -6,8 +6,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "http",
         hostname: "127.0.0.1",
-        port: "5044",
-        pathname: "/api/products/**",
+        pathname: "/webapi/api/products/**",
       },
       {
         protocol: "https",
